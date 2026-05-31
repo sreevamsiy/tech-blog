@@ -1,0 +1,35 @@
+name: Blog CI
+
+on:
+  push:
+    branches:
+      - main
+    paths:
+      - "blog/**"
+      - ".github/workflows/blog-ci.yml"
+
+  pull_request:
+    branches:
+      - main
+    paths:
+      - "blog/**"
+      - ".github/workflows/blog-ci.yml"
+
+jobs:
+  build:
+    name: Build Hugo blog
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Install Hugo
+        uses: peaceiris/actions-hugo@v3
+        with:
+          hugo-version: "0.161.1"
+          extended: true
+
+      - name: Build site
+        working-directory: blog
+        run: hugo --minify --gc

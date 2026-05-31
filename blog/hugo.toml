@@ -1,0 +1,10 @@
+baseURL = 'https://sreevamsi.dev/'
+locale = 'en-us'
+title = 'Sreevamsi Yandrapu'
+
+[params]
+  description = 'Writing about cloud, devops, automation, containers, and AI.'
+  author = 'Sreevamsi Yandrapu'
+
+[markup.goldmark.renderer]
+  unsafe = true

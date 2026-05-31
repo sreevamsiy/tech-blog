@@ -1,0 +1,34 @@
+{{ define "main" }}
+  <section class="hero">
+    <p class="eyebrow">Cloud, DevOps, and AI</p>
+    <h1>Between terminals and IDEs</h1>
+    <p class="lede">
+      Writing about cloud, devops, automation, containers, and AI.
+    </p>
+    <div class="hero-actions">
+      <a class="button primary" href="/posts/">Read blogs</a>
+      <a class="button secondary" href="/contact/">Contact me</a>
+    </div>
+  </section>
+
+  <section class="section">
+    <div class="section-heading">
+      <h2>Latest Blogs</h2>
+      <a href="/posts/">All blogs</a>
+    </div>
+
+    <div class="post-grid">
+      {{ range first 3 (where site.RegularPages "Section" "posts") }}
+        <article class="post-card">
+          <h3><a href="{{ .RelPermalink }}">{{ .Title }}</a></h3>
+          <p>{{ .Description | default .Summary }}</p>
+        </article>
+      {{ else }}
+        <article class="empty-state">
+          <h3>First post is warming up.</h3>
+          <p>The architecture write-up will start with the private S3 bucket and grow step by step into CloudFront, Route 53, ACM, and deployment automation.</p>
+        </article>
+      {{ end }}
+    </div>
+  </section>
+{{ end }}

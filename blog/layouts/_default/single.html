@@ -1,0 +1,23 @@
+{{ define "main" }}
+  <article class="article">
+    <header class="article-header">
+      {{ with .Params.last_updated }}
+        <p class="post-date">Last updated: {{ . }}</p>
+      {{ else }}
+        {{ if not .Date.IsZero }}
+          <p class="post-date">{{ .Date.Format "02 Jan 2006" }}</p>
+        {{ end }}
+      {{ end }}
+      <h1>{{ .Title }}</h1>
+      {{ with .Params.tags }}
+        <div class="tags" aria-label="Tags">
+          {{ range . }}<span>{{ . }}</span>{{ end }}
+        </div>
+      {{ end }}
+    </header>
+
+    <div class="article-body">
+      {{ .Content }}
+    </div>
+  </article>
+{{ end }}
