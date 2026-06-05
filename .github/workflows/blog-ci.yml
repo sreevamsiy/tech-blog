@@ -15,6 +15,10 @@ on:
       - "blog/**"
       - ".github/workflows/blog-ci.yml"
 
+permissions:
+  contents: read
+  id-token: write
+  
 jobs:
   build:
     name: Build Hugo blog
@@ -58,7 +62,7 @@ jobs:
         uses: aws-actions/configure-aws-credentials@v5
         with:
           role-to-assume: ${{ secrets.AWS_GITHUB_ACTIONS_ROLE_ARN }}
-          aws-region: ap-south-1
+          aws-region: us-east-1
 
       - name: Sync site to S3
         working-directory: blog
