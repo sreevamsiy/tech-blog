@@ -1,0 +1,36 @@
+site_bucket_name = "sreevamsi-tech-blog-prod"
+aws_region       = "us-east-1"
+domain_name      = "sreevamsi.dev"
+project_name     = "tech-blog"
+environment      = "prod"
+
+cloudfront_price_class = "PriceClass_100"
+
+cloudfront_logs_bucket_name     = null
+cloudfront_logs_prefix          = "cloudfront/"
+cloudfront_logs_retention_days  = 60
+
+athena_database_name           = "tech_blog_logs"
+athena_cloudfront_table_name   = "cloudfront_standard_logs"
+athena_workgroup_name          = "tech-blog-cloudfront-logs"
+athena_results_prefix          = "athena-results/"
+athena_results_retention_days  = 30
+
+contact_email_local_part      = "hello"
+forward_to_email              = "you@example.com"
+inbound_email_bucket_name     = null
+inbound_email_prefix          = "inbound/"
+inbound_email_retention_days  = 30
+ses_receipt_rule_set_name     = "tech-blog-inbound-email"
+ses_receipt_rule_name         = "forward-hello-to-gmail"
+ses_forwarder_lambda_name     = "tech-blog-ses-forwarder"
+lambda_log_retention_days     = 14
+
+alert_email_address                         = null
+alert_topic_name                            = "tech-blog-alerts"
+monthly_budget_limit_usd                    = 10
+cloudfront_5xx_error_rate_threshold_percent = 1
+cloudfront_4xx_error_rate_threshold_percent = 10
+enable_cloudfront_4xx_alarm                 = false
+
+google_site_verification = "google-site-verification=example"
