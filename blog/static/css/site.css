@@ -480,6 +480,10 @@ h3 {
   width: min(100%, 410px);
 }
 
+.article-body img.image-hero-small {
+  width: min(100%, 492px);
+}
+
 .screenshot-placeholder {
   width: min(100%, 820px);
   min-height: 220px;
