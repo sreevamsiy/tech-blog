@@ -7,6 +7,8 @@ draft = false
 
 # A Hands-On Hello World With Strands, Nova, and AWS Tools
 
+<img class="image-hero-small" src="/images/agentcore-harness/agentcore-harness.png" alt="AgentCore harness mental model">
+
 I wanted to understand agents in the most practical way possible: not by reading definitions, but by building a tiny one in my own AWS account. The goal was simple:
 
 - Create a local Strands agent.
