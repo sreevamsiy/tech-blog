@@ -2,6 +2,7 @@
 title = "My First AgentCore Harness"
 date = 2026-06-09
 description = "A hands-on first pass at building and deploying an AgentCore harness with Strands, Nova, and AWS tools."
+image = "/images/agentcore-harness/agentcore-harness.png"
 draft = false
 +++
 
