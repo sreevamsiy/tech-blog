@@ -8,7 +8,7 @@ images:
 
 {{< screenshot src="/images/observability-agent/observability-agent.png" alt="Building an Observability Agent for sreevamsi.dev" >}}
 
-Every time I wanted to know something about my blog traffic — which article did well, where readers came from, whether a post got any traction — the answer was the same: open Athena, remember the table schema, write a query, wait thirty seconds, squint at raw JSON. For a personal blog I check maybe once a week, that friction was enough to make me not bother.
+Every time I wanted to know something about my blog traffic — which article did well, where readers came from, whether a post got any traction — the answer was the same: open Athena, remember the table schema, write a query, and wait for the answer. For a personal blog I check maybe once a week, that friction was enough to make me not bother.
 
 I wanted to just ask the question.
 
