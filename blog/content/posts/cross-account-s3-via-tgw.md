@@ -4,65 +4,164 @@ date: 2026-07-04
 draft: false
 tags: ["aws", "transit-gateway", "s3", "vpc-endpoint", "platform-engineering", "networking"]
 categories: ["Platform Engineering"]
-description: "How we enabled private cross-account, cross-region S3 access by leveraging our hub-and-spoke Transit Gateway architecture, VPC Interface Endpoints, and PrivateLink — without any traffic leaving the AWS network."
+description: "A step-by-step guide to enabling private cross-account, cross-region S3 access using a hub-and-spoke Transit Gateway architecture, VPC Interface Endpoints, and PrivateLink — without any traffic leaving the AWS network."
 ---
 
-I'm part of a platform engineering team responsible for shared resources such as Transit Gateways, ACM Private CA, KMS keys, and more. We operate a hub-and-spoke model with a few shared hub accounts and multiple spoke accounts belonging to various application teams.
+This post walks through how to enable private, cross-account, cross-region access to an S3 bucket without any traffic leaving the AWS network. The scenario: an application in `us-west-2` (Account B) needs to read from an S3 bucket in `us-east-1` (Account A). The data is sensitive, so public endpoints and internet-routed proxies are off the table.
 
-Recently I worked on a request from an application team — let's call them App Team A — who are setting up their disaster recovery environment in `us-west-2` and need to access an S3 bucket owned by another application team, App Team B, which is in `us-east-1`. The data is sensitive and cannot leave the AWS network.
+The solution uses a hub-and-spoke Transit Gateway architecture, cross-region TGW peering, and a VPC Interface Endpoint for S3.
 
-## The Constraints
+## The Scenario
 
-Every service invoked from inside our VPCs goes through a VPC endpoint. This rules out both public S3 endpoints and our HTTP proxy, which we built to route traffic to a limited set of internet endpoints. Private-only, end to end.
+- **Account B** — application workload in `us-west-2`, needs read access to a bucket in Account A.
+- **Account A** — owns the S3 bucket in `us-east-1`.
+- **Hub Account** — owns and shares the Transit Gateways for both regions.
 
-## What Was Already in Place
-
-Our hub-and-spoke model meant most of the heavy lifting was already done:
-
-- The hub account has two shared Transit Gateways — one in `us-east-1` and one in `us-west-2`.
-- Both TGWs are shared with App Team A and App Team B via **AWS Resource Access Manager (RAM)**.
-- Each application team has already created VPC attachments to their respective regional TGWs.
-- The two TGWs are peered across regions.
+All traffic must stay on the AWS private network. No public S3 endpoints. No NAT. No internet.
 
 {{< figure src="/images/cross-account-s3-tgw-diagram.png" alt="Architecture diagram showing cross-account S3 access via Transit Gateway peering and VPC Interface Endpoint" caption="Cross-account, cross-region S3 access via Hub TGW peering and VPC Interface Endpoint" >}}
 
-## What I Had to Do
+## Prerequisites
 
-With the foundation in place, my work came down to three things:
+Before following these steps, make sure the following are already in place:
 
-1. **Establish bidirectional routing** on both TGW route tables — so traffic from App Team A's VPC CIDR (`us-west-2`) is routed toward the East TGW peering attachment, and vice versa.
+- A **Hub Account** with a Transit Gateway in `us-west-2` (West TGW) and a Transit Gateway in `us-east-1` (East TGW).
+- Both TGWs are **shared with Account B and Account A** via AWS Resource Access Manager (RAM).
+- Account B has created a **VPC attachment** to the West TGW.
+- Account A has created a **VPC attachment** to the East TGW.
+- The West TGW and East TGW are **peered** across regions (peering attachment created and accepted).
 
-2. **Update subnet NACLs** at both ends to allow the relevant CIDRs — inbound and outbound — on TCP port 443.
+## Step 1 — Establish Bidirectional Routing on Both TGWs
 
-3. **Update security group rules** at both ends — outbound on the source side and inbound on the S3 interface endpoint's security group in App Team B's VPC, scoped to App Team A's VPC CIDR.
+In the Hub Account, update the TGW route tables so traffic can flow in both directions.
 
-## How the Traffic Flows
+**West TGW route table**
 
-App Team A's application in `us-west-2` is configured to use the **VPC Endpoint-specific DNS hostname** of the S3 Interface Endpoint that lives in App Team B's VPC in `us-east-1`. The hostname takes the form:
+| Destination | Target |
+|---|---|
+| Account A VPC CIDR (e.g. `10.0.0.0/16`) | Peering attachment → East TGW |
+
+**East TGW route table**
+
+| Destination | Target |
+|---|---|
+| Account B VPC CIDR (e.g. `10.1.0.0/16`) | Peering attachment → West TGW |
+
+Both route tables also need their local VPC attachment routes so traffic can reach the VPC at each end.
+
+## Step 2 — Create the S3 Interface Endpoint in Account A
+
+In Account A (`us-east-1`), create a VPC Interface Endpoint for S3:
+
+- **Service name**: `com.amazonaws.us-east-1.s3`
+- **VPC**: Account A's VPC
+- **Subnet**: a private subnet in Account A's VPC
+- **Private DNS**: leave disabled — Account B will use the endpoint-specific DNS hostname directly
+
+Note the endpoint-specific DNS hostname after creation. It will look like:
 
 ```
 <bucket-name>.vpce-xxxx-s3.s3.us-east-1.vpce.amazonaws.com
 ```
 
-This resolves to the private IPs of the endpoint ENIs inside App Team B's VPC. The request then travels entirely over the AWS private network:
+## Step 3 — Update the Endpoint Security Group (Account A)
 
-**Account A (us-west-2)**
-1. Request hits the **TGW VPC Attachment (West)** in App Team A's VPC.
+Attach a security group to the interface endpoint with the following rules:
+
+| Direction | Protocol | Port | Source |
+|---|---|---|---|
+| Inbound | TCP | 443 | Account B VPC CIDR (`10.1.0.0/16`) |
+| Outbound | All | All | `0.0.0.0/0` |
+
+## Step 4 — Update Subnet NACLs at Both Ends
+
+**Account A — subnet hosting the interface endpoint**
+
+| Direction | Protocol | Port | CIDR |
+|---|---|---|---|
+| Inbound | TCP | 443 | Account B VPC CIDR (`10.1.0.0/16`) |
+| Outbound | TCP | 1024–65535 | Account B VPC CIDR (`10.1.0.0/16`) |
+
+**Account B — subnet hosting the application**
+
+| Direction | Protocol | Port | CIDR |
+|---|---|---|---|
+| Outbound | TCP | 443 | Account A VPC CIDR (`10.0.0.0/16`) |
+| Inbound | TCP | 1024–65535 | Account A VPC CIDR (`10.0.0.0/16`) |
+
+## Step 5 — Update Security Groups at Both Ends
+
+**Account B — application security group**
+
+| Direction | Protocol | Port | Destination |
+|---|---|---|---|
+| Outbound | TCP | 443 | Account A VPC CIDR (`10.0.0.0/16`) |
+
+**Account A — endpoint security group** (covered in Step 3 above)
+
+## Step 6 — Update the S3 Bucket Policy (Account A)
+
+The bucket policy must explicitly allow Account B's IAM principal and scope it to the VPC endpoint:
+
+```json
+{
+  "Version": "2012-10-17",
+  "Statement": [
+    {
+      "Effect": "Allow",
+      "Principal": {
+        "AWS": "arn:aws:iam::<AccountB-ID>:role/<EC2RoleName>"
+      },
+      "Action": ["s3:GetObject", "s3:PutObject"],
+      "Resource": "arn:aws:s3:::<bucket-name>/*",
+      "Condition": {
+        "StringEquals": {
+          "aws:SourceVpce": "vpce-xxxx",
+          "aws:SourceVpc": "<AccountA-VPC-ID>"
+        }
+      }
+    }
+  ]
+}
+```
+
+## Step 7 — Configure the Application in Account B
+
+Configure the application or AWS SDK in Account B to use the endpoint-specific DNS hostname from Step 2:
+
+```
+<bucket-name>.vpce-xxxx-s3.s3.us-east-1.vpce.amazonaws.com
+```
+
+This hostname is publicly resolvable via standard DNS and returns the private IP addresses of the endpoint ENIs in Account A's VPC. No Route 53 Resolver rules or Private Hosted Zone sharing is needed.
+
+## How the Traffic Flows
+
+Once everything is in place, a request from Account B to the S3 bucket travels as follows:
+
+**Account B (us-west-2)**
+1. Application sends request to the endpoint-specific DNS hostname, which resolves to the endpoint ENI private IPs.
+2. Traffic hits the **TGW VPC Attachment (West)** in Account B's VPC.
 
 **Hub Account**
+3. West TGW receives the traffic and routes it via the **peering attachment** to the East TGW.
+4. East TGW routes traffic to the **TGW VPC Attachment (East)** pointing to Account A's VPC.
 
-2. Forwarded to the **West Transit Gateway**.
-3. Routed via the **peering attachment** to the East Transit Gateway.
-4. Forwarded to the **TGW VPC Attachment (East)** pointing to App Team B's VPC.
-
-**Account B (us-east-1)**
-
-5. Traffic arrives at the **S3 Interface Endpoint** inside App Team B's VPC, which forwards the request to S3 over PrivateLink.
+**Account A (us-east-1)**
+5. Traffic arrives at the **S3 Interface Endpoint** ENI, passes security group and NACL checks, and is forwarded to S3 over PrivateLink.
 
 The response travels the same path in reverse.
 
-## Closing Thoughts
+## Summary
 
-Setting this up reinforced my appreciation for our hub-and-spoke architecture. What could have been a complex, multi-team networking problem was reduced to a handful of targeted changes — routing entries, NACL rules, and security group updates. The shared TGW infrastructure and RAM sharing meant no new gateways, no new peering relationships to negotiate, and no traffic touching the internet.
+| Component | Account | Action |
+|---|---|---|
+| TGW route tables (bidirectional) | Hub | Add routes for both VPC CIDRs |
+| S3 Interface Endpoint | Account A | Create in private subnet |
+| Endpoint security group | Account A | Allow inbound TCP 443 from Account B CIDR |
+| Subnet NACL | Account B & B | Allow TCP 443 + ephemeral ports |
+| Application security group | Account B | Allow outbound TCP 443 to Account A CIDR |
+| S3 bucket policy | Account A | Allow Account B principal + VPC endpoint condition |
+| Application config | Account B | Use endpoint-specific DNS hostname |
 
-If your team is dealing with cross-account, cross-region data access with strict network isolation requirements, a centralized Transit Gateway hub is well worth the investment.
+This pattern scales well. Once the TGW peering and RAM sharing are in place, enabling private cross-account access for additional services is mostly a matter of repeating Steps 2–7 for each new endpoint.
