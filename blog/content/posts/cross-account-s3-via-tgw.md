@@ -19,7 +19,7 @@ The solution uses a hub-and-spoke Transit Gateway architecture, cross-region TGW
 
 All traffic must stay on the AWS private network. No public S3 endpoints. No NAT. No internet.
 
-{{< figure src="/images/cross-account-s3-tgw-diagram.png" alt="Architecture diagram showing cross-account S3 access via Transit Gateway peering and VPC Interface Endpoint" caption="Cross-account, cross-region S3 access via Hub TGW peering and VPC Interface Endpoint" >}}
+{{< figure src="/images/cross-account-s3-via-tgw.png" alt="Architecture diagram showing cross-account S3 access via Transit Gateway peering and VPC Interface Endpoint" caption="Cross-account, cross-region S3 access via Hub TGW peering and VPC Interface Endpoint" >}}
 
 ## Prerequisites
 
