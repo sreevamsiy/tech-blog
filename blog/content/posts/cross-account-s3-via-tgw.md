@@ -117,7 +117,7 @@ The bucket policy must explicitly allow Account B's IAM principal and scope it t
       "Condition": {
         "StringEquals": {
           "aws:SourceVpce": "vpce-xxxx",
-          "aws:SourceVpc": "<AccountA-VPC-ID>"
+          "aws:SourceVpc": "<AccountB-VPC-ID>"
         }
       }
     }
@@ -159,7 +159,7 @@ The response travels the same path in reverse.
 | TGW route tables (bidirectional) | Hub | Add routes for both VPC CIDRs |
 | S3 Interface Endpoint | Account A | Create in private subnet |
 | Endpoint security group | Account A | Allow inbound TCP 443 from Account B CIDR |
-| Subnet NACL | Account B & B | Allow TCP 443 + ephemeral ports |
+| Subnet NACL | Account A & B | Allow TCP 443 + ephemeral ports |
 | Application security group | Account B | Allow outbound TCP 443 to Account A CIDR |
 | S3 bucket policy | Account A | Allow Account B principal + VPC endpoint condition |
 | Application config | Account B | Use endpoint-specific DNS hostname |
